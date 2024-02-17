@@ -1,20 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
+		<link
+			href="https://fonts.googleapis.com/css?family=Space Grotesk"
+			rel="stylesheet" />
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Rust Server</title>
 	</head>
 	<body>
 		<main>
-            <h1>{{ result }}</h1>
-            <div class="loading"></div>
-        </main>
+			<div class="text">
+				
+				{% if result %} 
+					<h1 style="cursor: pointer;" onclick="window.location.href='/'">
+						{{ result }} 
+					</h1>
+				{% else %} 
+					<h1>
+						hellos 🐱
+					</h1>
+				{% endif %}
+				
+				<div class="loading"></div>
+			</div>
+
+			<div class="action">
+				<form id="sender" action="" method="post">
+					<input id="box" type="number" name="navigate" value="0" />
+					<button type="submit">S E N D</button>
+				</form>
+			</div>
+		</main>
+
+		<script>
+			document
+				.getElementById("sender")
+				.addEventListener("submit", function (event) {
+					const VALUE = document.getElementById("box").value;
+					this.action = "/" + VALUE;
+				});
+		</script>
 	</body>
 
 	<style>
 		:root {
 			--silver: rgb(190, 209, 209);
+			--accent: rgb(245, 83, 137);
 		}
 
 		body {
@@ -23,16 +55,21 @@
 			min-height: 100vh;
 			display: grid;
 			place-items: center;
-			text-align: center;
 		}
 
 		*::-webkit-scrollbar {
 			display: none;
 		}
 
+		*::selection {
+			background-color: var(--accent);
+			color: var(--silver);
+		}
+
 		* {
 			scrollbar-width: thin;
 			scrollbar-color: rgba(255, 0, 111, 0) transparent;
+			cursor: default;
 		}
 
 		.loading {
@@ -55,6 +92,46 @@
 				left: 100%;
 				right: 0;
 			}
+		}
+
+		main {
+			display: flex;
+			flex-direction: column;
+			justify-content: space-around;
+			align-items: center;
+			gap: 3.5rem;
+			padding: 2rem;
+			font-family: Space Grotesk;
+		}
+		main:hover {
+			filter: brightness(1.07);
+		}
+
+		input {
+			color: var(--accent);
+			width: 3rem;
+		}
+
+		input:focus {
+			outline: none;
+		}
+
+		button {
+			border: none;
+			font-weight: bolder;
+		}
+		
+		button:hover {
+			background-color: var(--accent);
+			text-shadow: 1px 1px 1px var(--silver);
+			text-shadow: 1px 1px 10px var(--silver);
+		}
+
+		input, button {
+			padding: 1rem;
+			text-rendering: geometricPrecision;
+			transition: all 0.1s ease-in;
+			font-family: Space Grotesk;
 		}
 	</style>
 </html>

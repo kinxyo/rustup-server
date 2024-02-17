@@ -1,11 +1,17 @@
 extern crate chrono;
-use std::io::BufReader;
-use std::fs::File;
-use std::io::Write;
-use std::io::prelude::*;
-use std::net::{TcpListener, TcpStream};
-use std::time::SystemTime;
 use chrono::{DateTime, Local};
+use std::time::SystemTime;
+use std::io::{BufReader, Write, prelude::*};
+use std::fs::{File, read_to_string};
+use std::net::{TcpListener, TcpStream};
+use tera::{Tera, Context};
+
+const STATUS: &str = "HTTP/1.1 200 OK";
+
+struct Variable {
+    key: String,
+    value: String,
+}
 
 fn main() {
     
@@ -23,50 +29,82 @@ fn main() {
 
 fn handle_connection(mut stream: TcpStream) {
     
-    /*
-        now we're reading into the request
-    
-        we first listen to the incoming request at a port.
-        then store it into buffer so we can read all at once for better performance.
-        then we collect lines via iterator until iterator encounters an empty line (indicating the end of the HTTP request headers).
-    */
-    
     // READING REQUEST
-    
     let reader = BufReader::new(&mut stream);
-    
     let http_request: Vec<_> = reader.lines().map(|result| result.unwrap()).take_while(|line| !line.is_empty()).collect();    
     
-    println!("connection secured!");    
+    let request_line = &http_request[0];
+    let parts: Vec<&str> = request_line.split_whitespace().collect();
+    println!("connection secured!");
+    println!("{:?}", parts);
     log_request(&http_request);
+    let method = parts[0];
+    let path = parts[1];
 
-    
-    // SENDING RESPONSE
-    
-    const STATUS: &str = "HTTP/1.1 200 OK";
-    let contents = std::fs::read_to_string("index.html").unwrap();
+    // let (method, path) = {
+        // let mut iter = request.split_whitespace();
+        // (iter.next().unwrap(), iter.next().unwrap())
+    // };
 
-    let response = format!("{}\r\nContent-Length: {}\r\n\r\n{}", STATUS, contents.len(), contents);
 
-    stream.write_all(response.as_bytes()).unwrap();
-
-    
-    /*  
-        So we're basically writing on the same tcpstream on which we recieved the request.
-
-        When a client (like a web browser) makes a connection to the
-        server, it sends the HTTP request over the TCP stream. 
-        The server reads the request from the stream, processes it, 
-        and then writes the HTTP response back to the same stream. 
-        The client then reads the response from the stream.
-
-    */
+    match method {
+        "GET" => get_req(path, stream),
+        "POST" => post_req(path, stream),
+        _ => unknown_req(stream),
+    }
 
     
 }
 
+/* Handling-Request Functions ⬇️ */
 
-/* Logging Functions */
+fn get_req(path: &str, stream: TcpStream) {
+
+    match path {
+        "/" => {
+            send_response(stream, "index", None);
+        },
+
+        _ => {
+            send_response(stream, "404", None);
+        },
+    }
+
+}
+
+fn post_req(path: &str, stream: TcpStream) {
+
+    let parts: Vec<&str> = path.split('/').collect();
+
+    if parts.len() < 1 {
+        println!("parts not enough!");
+        return;
+    }
+
+    let parameter = parts[1];
+
+    match path {
+        _ if parameter.len() > 0 => {
+
+            send_response(stream, "index", Some(Variable { key: String::from("result"), value: String::from(parts[1]) }));
+
+        },
+        _ => {
+            send_response(stream, "404", None);
+        }
+    }
+
+}
+
+fn unknown_req(mut stream: TcpStream) {
+
+    let contents = read_to_string("404.html").unwrap();
+    let response = format!("{}\r\nContent-Length: {}\r\n\r\n{}", STATUS, contents.len(), contents);
+    stream.write_all(response.as_bytes()).unwrap();
+
+}
+
+/* Logging Functions ⬇️ */
 
 fn check_files() {
     
@@ -108,4 +146,39 @@ fn log_request(req: &Vec<String>) {
         Err(e) => println!("cannot write to log as: {e}"),
     
     }
+}
+
+fn send_response(mut stream: TcpStream, template: &str, variable: Option<Variable>) {
+
+    match variable {
+        Some(variable) => {
+
+            
+            let body = read_to_string(format!("{template}.html")).unwrap();
+            
+            let mut tera = Tera::default();
+            tera.add_raw_template(template, &body).unwrap();
+            
+            let mut context = Context::new();
+            context.insert(variable.key, &variable.value);
+            
+            let contents = tera.render(template, &context).unwrap();          
+            let response = format!("{}\r\nContent-Length: {}\r\n\r\n{}", STATUS, contents.len(), contents);
+            stream.write_all(response.as_bytes()).unwrap();
+
+        },
+        None => {
+            
+            let contents = read_to_string(format!("{template}.html")).unwrap();          
+            let mut tera = Tera::default();
+            tera.add_raw_template(template, &contents).unwrap();
+            let context = tera::Context::new(); // Create an empty context
+            let contents = tera.render(template, &context).unwrap();
+            let response = format!("{}\r\nContent-Length: {}\r\n\r\n{}", STATUS, contents.len(), contents);
+            stream.write_all(response.as_bytes()).unwrap();    
+        
+        }
+   
+    }
+
 }

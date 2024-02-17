@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Rust Server</title>
+	</head>
+	<body>
+		<main>
+            <h1> 🤖✋🚫 </h1>
+            <div class="loading"></div>
+        </main>
+	</body>
+
+	<style>
+		:root {
+			--silver: rgb(190, 209, 209);
+		}
+
+		body {
+			background-color: rgb(128, 6, 41);
+			color: var(--silver);
+			min-height: 100vh;
+			display: grid;
+			place-items: center;
+			text-align: center;
+		}
+
+		*::-webkit-scrollbar {
+			display: none;
+		}
+
+		* {
+			scrollbar-width: thin;
+			scrollbar-color: rgba(255, 0, 111, 0) transparent;
+		}
+
+		.loading {
+			width: 6px;
+			height: 6px;
+			position: relative;
+			border-radius: 100%;
+			background-color: var(--silver);
+
+			animation: loading 0.8s ease-in-out infinite alternate-reverse;
+		}
+
+		@keyframes loading {
+			0% {
+				left: 0;
+				right: 100%;
+			}
+
+			100% {
+				left: 100%;
+				right: 0;
+			}
+		}
+	</style>
+</html>
