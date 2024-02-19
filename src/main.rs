@@ -1,184 +1,73 @@
-extern crate chrono;
-use chrono::{DateTime, Local};
-use std::time::SystemTime;
-use std::io::{BufReader, Write, prelude::*};
-use std::fs::{File, read_to_string};
-use std::net::{TcpListener, TcpStream};
-use tera::{Tera, Context};
+#![allow(dead_code)]
 
-const STATUS: &str = "HTTP/1.1 200 OK";
+mod logfetch;
+mod endpoints;
 
-struct Variable {
-    key: String,
-    value: String,
-}
+use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 
-fn main() {
-    
-    check_files(); //creating log if doesn't exist.
-
-    let listener = TcpListener::bind("127.0.0.1:7878").expect("failed to listen to server");
-
-    for stream in listener.incoming() {
-        let stream = stream.unwrap(); //connection attempts
-
-        handle_connection(stream);
-    }
-
-}
-
-fn handle_connection(mut stream: TcpStream) {
-    
-    // READING REQUEST
-    let reader = BufReader::new(&mut stream);
-    let http_request: Vec<_> = reader.lines().map(|result| result.unwrap()).take_while(|line| !line.is_empty()).collect();    
-    
-    let request_line = &http_request[0];
-    let parts: Vec<&str> = request_line.split_whitespace().collect();
-    println!("connection secured!");
-    println!("{:?}", parts);
-    log_request(&http_request);
-    let method = parts[0];
-    let path = parts[1];
-
-    // let (method, path) = {
-        // let mut iter = request.split_whitespace();
-        // (iter.next().unwrap(), iter.next().unwrap())
-    // };
+use endpoints::*;
+use logfetch::log_and_fetch_request;
+use tokio::net::TcpStream;
+use tokio::io::AsyncReadExt;
 
 
-    match method {
-        "GET" => get_req(path, stream),
-        "POST" => post_req(path, stream),
-        _ => unknown_req(stream),
-    }
+#[tokio::main]
+async fn main() {
+
+    let connection_count = Arc::new(AtomicUsize::new(0));
+
+    // simple_logger::init_with_level(Level::Info).unwrap(); //maybe ill use
+
+    let listener = bind_to_available_port(3000).await.expect("failed to listen to server");
 
     
-}
-
-/* Handling-Request Functions ⬇️ */
-
-fn get_req(path: &str, stream: TcpStream) {
-
-    match path {
-        "/" => {
-            send_response(stream, "index", None);
-        },
-
-        _ => {
-            send_response(stream, "404", None);
-        },
+    loop {
+        let (stream, _) = listener.accept().await.unwrap();
+        let cc = Arc::clone(&connection_count);
+        tokio::spawn(handle_connection(stream, cc));
     }
-
 }
 
-fn post_req(path: &str, stream: TcpStream) {
+async fn handle_connection(mut stream: TcpStream, connection_count: Arc<AtomicUsize>) {
 
-    let parts: Vec<&str> = path.split('/').collect();
+    connection_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-    if parts.len() < 1 {
-        println!("parts not enough!");
-        return;
-    }
+    println!("New connection! Total: {}", connection_count.load(std::sync::atomic::Ordering::SeqCst));
 
-    let parameter = parts[1];
+    // Create a buffer (BufReader is beyond me atm, it adds more complexity if anything).
+    let mut buf = [0; 1024];
 
-    match path {
-        _ if parameter.len() > 0 => {
+    loop { // Creating a loop to handle multiple request in 1 incoming connection
 
-            send_response(stream, "index", Some(Variable { key: String::from("result"), value: String::from(parts[1]) }));
+        let n = match stream.read(&mut buf).await {
+            Ok(n) if n > 0 => n,
+            Ok(_) => break,
+            Err(e) => {eprintln!("failed to read data from the stream -> {:?}",e); return;},
+        };
 
-        },
-        _ => {
-            send_response(stream, "404", None);
-        }
-    }
+        // READING REQUEST
+        let http_request = String::from_utf8_lossy(&buf[..n]).into_owned();
 
-}
-
-fn unknown_req(mut stream: TcpStream) {
-
-    let contents = read_to_string("404.html").unwrap();
-    let response = format!("{}\r\nContent-Length: {}\r\n\r\n{}", STATUS, contents.len(), contents);
-    stream.write_all(response.as_bytes()).unwrap();
-
-}
-
-/* Logging Functions ⬇️ */
-
-fn check_files() {
-    
-    match File::open("log.txt") {
-   
-        Err(_) => {
-            
-            let mut file = File::create("log.txt").expect("permission denied while creating the file");
-            file.write("Request Log\n".as_bytes()).expect("permission denied to write to the file");
-            
-            ()
-        },
+        let request = log_and_fetch_request(&http_request);
         
-        Ok(_) => ()
-   
-    }
-}
+        let parts: Vec<&str> = request.split_whitespace().collect();
 
-fn log_request(req: &Vec<String>) {
-    
-    match std::fs::OpenOptions::new().append(true).open("log.txt") {
-        
-        Ok(mut file) => {
-            
-            let raw_time = SystemTime::now();
-            let formatted_time: DateTime<Local> = raw_time.into();
-            let time = format!("\nEntry of: {}\n",formatted_time.format("%d/%m/%Y %T"));
-            
-            file.write(time.as_bytes()).expect("failed to mark entry");
-            
-            for lines in req {
-                file.write(lines.as_bytes()).expect("failed to write request log");
-            }
-            
-            file.write("\n-----|\n".as_bytes()).expect("failed to close file");
+
+        let method = parts[0];
+        let path = parts[1];
+
+        match method {
+            "GET" => get_req(path, &mut stream).await,
+            "POST" => post_req(path, &mut stream).await,
+            wrong_req => {
+                println!("request failed for type: {}", wrong_req);
+                unknown_req(&mut stream).await
+            },
         }
 
-    
-        Err(e) => println!("cannot write to log as: {e}"),
-    
     }
-}
-
-fn send_response(mut stream: TcpStream, template: &str, variable: Option<Variable>) {
-
-    match variable {
-        Some(variable) => {
-
-            
-            let body = read_to_string(format!("{template}.html")).unwrap();
-            
-            let mut tera = Tera::default();
-            tera.add_raw_template(template, &body).unwrap();
-            
-            let mut context = Context::new();
-            context.insert(variable.key, &variable.value);
-            
-            let contents = tera.render(template, &context).unwrap();          
-            let response = format!("{}\r\nContent-Length: {}\r\n\r\n{}", STATUS, contents.len(), contents);
-            stream.write_all(response.as_bytes()).unwrap();
-
-        },
-        None => {
-            
-            let contents = read_to_string(format!("{template}.html")).unwrap();          
-            let mut tera = Tera::default();
-            tera.add_raw_template(template, &contents).unwrap();
-            let context = tera::Context::new(); // Create an empty context
-            let contents = tera.render(template, &context).unwrap();
-            let response = format!("{}\r\nContent-Length: {}\r\n\r\n{}", STATUS, contents.len(), contents);
-            stream.write_all(response.as_bytes()).unwrap();    
-        
-        }
-   
-    }
-
+    println!("A connection just closed!");
+    connection_count.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    println!("Open Connections left: {}", connection_count.load(std::sync::atomic::Ordering::SeqCst));
 }
