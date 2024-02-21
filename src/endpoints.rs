@@ -3,10 +3,13 @@ use tokio::io::AsyncWriteExt;
 use std::fs::read_to_string;
 use tera::{Context, Tera};
 
+/* PENDING CODE REVIEW */
+
 const STATUS: &str = "HTTP/1.1 200 OK";
 
-pub async fn bind_to_available_port(starting_port: u16) -> Result<TcpListener, Box<dyn std::error::Error>> {
+pub async fn porting(starting_port: u16) -> Result<TcpListener, Box<dyn std::error::Error>> {
     let mut port = starting_port;
+    
     loop {
         match TcpListener::bind(("127.0.0.1", port)).await {
             Ok(listener) => return Ok(listener),
@@ -25,9 +28,9 @@ pub struct Variable {
     value: String,
 }
 
-/* Handling-Request Functions ⬇️ */
+/* Handling Request ⬇️ */
 
-pub async fn get_req(path: &str, mut stream: &mut TcpStream) {
+pub async fn handle_get(path: &str, mut stream: &mut TcpStream) {
     match path {
         "/" => {
             send_response(&mut stream, "index", None).await;
@@ -39,11 +42,12 @@ pub async fn get_req(path: &str, mut stream: &mut TcpStream) {
     }
 }
 
-pub async fn post_req(path: &str, stream: &mut TcpStream) {
+pub async fn handle_post(path: &str, stream: &mut TcpStream) {
+    
     let parts: Vec<&str> = path.split('/').collect();
 
     if parts.len() < 1 {
-        println!("parts not enough!");
+        println!("not enough parts!");
         return;
     }
 
@@ -69,7 +73,6 @@ pub async fn post_req(path: &str, stream: &mut TcpStream) {
 pub async fn unknown_req(stream: &mut TcpStream) {
     let contents = read_to_string("404.html").unwrap();
     let response = format!(
-        // HTTP/1.1 405 Method Not Allowed\r\n\r\n
         "{}\r\nContent-Length: {}\r\n\r\n{}",
         STATUS,
         contents.len(),
@@ -78,7 +81,7 @@ pub async fn unknown_req(stream: &mut TcpStream) {
     let _ = stream.write_all(response.as_bytes()).await;
 }
 
-pub async fn send_response(stream: &mut TcpStream, template: &str, variable: Option<Variable>) {
+async fn send_response(stream: &mut TcpStream, template: &str, variable: Option<Variable>) {
     match variable {
         Some(variable) => {
             let body = read_to_string(format!("{template}.html")).unwrap();

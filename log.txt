@@ -1,9 +1,0 @@
-Request Log
-
-Entry of: 17/02/2024 18:31:29
-GET / HTTP/1.1Host: localhost:7878User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8Accept-Language: en-US,en;q=0.5Accept-Encoding: gzip, deflate, brDNT: 1Sec-GPC: 1Connection: keep-aliveUpgrade-Insecure-Requests: 1Sec-Fetch-Dest: documentSec-Fetch-Mode: navigateSec-Fetch-Site: noneSec-Fetch-User: ?1
------|
-
-Entry of: 17/02/2024 18:31:37
-POST /25 HTTP/1.1Host: localhost:7878User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8Accept-Language: en-US,en;q=0.5Accept-Encoding: gzip, deflate, brContent-Type: application/x-www-form-urlencodedContent-Length: 11Origin: http://localhost:7878DNT: 1Sec-GPC: 1Connection: keep-aliveReferer: http://localhost:7878/Upgrade-Insecure-Requests: 1Sec-Fetch-Dest: documentSec-Fetch-Mode: navigateSec-Fetch-Site: same-originSec-Fetch-User: ?1
------|
