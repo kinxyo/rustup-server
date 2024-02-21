@@ -21,10 +21,25 @@ async fn main() {
 
     let listener = porting(3000).await.expect("failed to listen to server");
     
+    let mut retry_count = 0;
+
     loop {
-        let (stream, _) = listener.accept().await.unwrap();
-        let cc = Arc::clone(&connection_count);
-        tokio::spawn(handle_connection(stream, cc)); //handling each connection concurrently (in the background).
+        match listener.accept().await {
+            Ok((stream, _)) => {
+                let cc = Arc::clone(&connection_count);
+                tokio::spawn(handle_connection(stream, cc)); //handling each connection concurrently (in the background).
+                retry_count = 0; // reseting retry count on successful connection
+            },
+            Err(e) => {
+                if retry_count < 5 {
+                    println!("Failed to accept connection: {}, \nretrying...", e);
+                    retry_count += 1;
+                } else {
+                    println!("Closing the program after failing to accept connection after 5 attempts:\nDebug: {}", e);
+                    break;
+                }
+            }
+        }
     }
 }
 

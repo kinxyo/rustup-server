@@ -41,7 +41,6 @@ pub fn log_and_fetch_request(req: &String) -> String {
             }
     }
 
-    
 
     let data = RequestInfo {entry, request, user_agent, connection, lang, host};
 
