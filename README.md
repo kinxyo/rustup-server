@@ -8,6 +8,12 @@ The project is organized into three main files:
 2. endpoints.rs - Contains the logic for handling different types of HTTP requests and sending responses.
 3. logfetch.rs - Responsible for logging incoming requests and fetching request data.
 
+## Features
+
+- 
+
+---
+
 ## Enhancements to add
 
 Although I have completed what I intended to do, I may add the following enhancements if I find enough time:

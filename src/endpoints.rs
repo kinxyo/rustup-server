@@ -12,7 +12,10 @@ pub async fn porting(starting_port: u16) -> Result<TcpListener, Box<dyn std::err
     
     loop {
         match TcpListener::bind(("127.0.0.1", port)).await {
-            Ok(listener) => return Ok(listener),
+            Ok(listener) => {
+			println!("starting at {port}");
+			return Ok(listener);
+			},
             Err(_) => {
                 port += 1;
                 if port >= 65535 {
